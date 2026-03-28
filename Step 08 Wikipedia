@@ -1,0 +1,65 @@
+The WikipediaLoader in LangChain is a specialized tool that uses the Wikipedia API to fetch the summary or full text of pages.
+Because Wikipedia is a collaborative platform, its metadata (like "summary" or "source") can vary in length and quality. Using Pydantic here is a best practice to ensure that your LLM or vector database doesn't receive "junk" data or broken links.
+1. The Pydantic Schema for Wikipedia
+We want to ensure that every article we ingest has a valid URL, a title, and a summary that isn't just an empty string.
+from pydantic import BaseModel, HttpUrl, Field
+from typing import Optional
+
+class WikiArticleMetadata(BaseModel):
+    title: str = Field(min_length=1)
+    summary: str = Field(min_length=10) # Ensure it's not a stub
+    source: HttpUrl                     # Must be a valid Wikipedia link
+    language: str = "en"
+
+2. Ingesting with WikipediaLoader
+The loader takes a search query and returns a list of Document objects. We then use our Pydantic model to "gate" the ingestion.
+from langchain_community.document_loaders import WikipediaLoader
+from pydantic import ValidationError
+
+# 1. Search for a topic
+# load_max_docs limits the results to the top 2 matches
+loader = WikipediaLoader(query="Generative AI", load_max_docs=2)
+docs = loader.load()
+
+valid_wiki_docs = []
+
+for i, doc in enumerate(docs):
+    try:
+        # 2. Extract metadata and validate
+        raw_meta = {
+            "title": doc.metadata.get("title"),
+            "summary": doc.metadata.get("summary", ""),
+            "source": doc.metadata.get("source"),
+        }
+        
+        validated_meta = WikiArticleMetadata(**raw_meta)
+        
+        # 3. Clean the document
+        doc.metadata = validated_meta.model_dump()
+        valid_wiki_docs.append(doc)
+        
+        print(f"Ingested: {validated_meta.title}")
+        
+    except ValidationError as e:
+        print(f"Skipping result {i} (Invalid Data): {e}")
+
+# Now valid_wiki_docs contains only high-quality, verified summaries
+
+Why use Pydantic for Wikipedia?
+1. Filtering "Stubs"
+Wikipedia has many "stub" articles that only contain a single sentence. By using Field(min_length=100) in Pydantic, you can automatically skip these low-value pages during ingestion so your RAG system only learns from detailed content.
+2. Standardizing API Responses
+The Wikipedia API sometimes returns metadata in different formats depending on whether you are fetching a "Summary" or the "Full Text." Pydantic acts as a uniform interface, so the rest of your code only has to deal with one object type.
+3. Preventing Hallucinations
+If you ingest a Wikipedia page that has a broken or redirected URL, an LLM might hallucinate facts about where that info came from. Pydantic’s HttpUrl ensures the source link is actually functional and valid.
+Comparison: Raw Loader vs. Pydantic Guard
+| Scenario | Raw WikipediaLoader | With Pydantic |
+|---|---|---|
+| Empty Summary | Ingests a blank document. | Fails validation (skipped). |
+| Broken Source Link | Saves as a broken string. | Fails HttpUrl check. |
+| Metadata Access | doc.metadata['title'] (risky) | doc.metadata.title (safe/typed) |
+| Data Quality | High noise (stubs included) | Low noise (thresholds met) |
+> Wit's End: Using Wikipedia without validation is like citing "a guy I met at the bus stop." Pydantic turns that guy into a verified professor with a valid ID card.
+> 
+Would you like me to show you how to combine the WikipediaLoader with a "Text Splitter" to handle very long articles, or should we look at how to search Wikipedia in multiple languages?
+
