@@ -1,0 +1,69 @@
+The RecursiveJsonSplitter is a specialized tool for handling deeply nested JSON data.
+While a standard text splitter would treat a JSON file like a giant string (potentially cutting a key away from its value), the RecursiveJsonSplitter understands the structure of the data. it explores the JSON object and splits it into smaller JSON chunks while attempting to keep nested objects together.
+1. How It Works
+The splitter looks at the "depth" of your JSON. If a JSON object is too large for your max_chunk_size, it drills down into the keys and splits them into separate documents.
+from langchain_text_splitters import RecursiveJsonSplitter
+
+# 1. A deeply nested JSON object (e.g., from an API or Config file)
+data = {
+    "company": "TechCorp",
+    "departments": [
+        {"name": "Engineering", "team": ["Frontend", "Backend", "DevOps"]},
+        {"name": "Marketing", "team": ["SEO", "Content", "Ads"]}
+    ],
+    "location": {"city": "San Francisco", "state": "CA"}
+}
+
+# 2. Initialize the splitter
+# min_chunk_size: try to keep chunks at least this big
+# max_chunk_size: don't let a chunk exceed this
+splitter = RecursiveJsonSplitter(max_chunk_size=100)
+
+# 3. Split the JSON
+json_chunks = splitter.split_json(json_data=data)
+
+# 4. Or get them as LangChain Documents (with metadata)
+docs = splitter.create_documents(texts=[data])
+
+for i, doc in enumerate(docs):
+    print(f"Chunk {i}: {doc.page_content}\n")
+
+2. Why Use This Over a Normal Splitter?
+A. It Preserves Key-Value Context
+If you have a key named salary: 100000, a normal splitter might put salary: in one chunk and 100000 in another. The JSON splitter ensures the key always stays with its value.
+B. It Handles Lists Automatically
+If you have a massive list of items, the splitter will intelligently break the list into groups of items that fit your size constraints.
+C. Valid JSON Output
+One of the best features is that the chunks created are often still valid JSON snippets (or strings that represent valid paths), making them easier for an LLM to parse.
+3. Combining with Pydantic
+When ingesting JSON, you can use Pydantic to "clean" the raw JSON before it even hits the splitter. This ensures you aren't wasting space on "null" values or junk keys.
+from pydantic import BaseModel, RootModel
+from typing import List, Dict, Any
+
+# Using Pydantic to filter out sensitive keys before splitting
+class SanitizedData(BaseModel):
+    public_info: Dict[str, Any]
+    
+    @classmethod
+    def from_raw(cls, raw_json: dict):
+        # Remove 'password' or 'api_key' if they exist
+        raw_json.pop('api_key', None)
+        return cls(public_info=raw_json)
+
+# 1. Clean the data
+clean_data = SanitizedData.from_raw(data).model_dump()
+
+# 2. Split the cleaned data
+chunks = splitter.split_json(json_data=clean_data)
+
+Comparison: String Splitting vs. JSON Splitting
+| Feature | RecursiveCharacterTextSplitter | RecursiveJsonSplitter |
+|---|---|---|
+| Data Awareness | Treats JSON as a String | Understands Objects/Lists |
+| Logic | Splits on \n or { | Splits on Key-Value Pairs |
+| LLM Friendly | High risk of broken syntax | High probability of valid context |
+| Best For | JSON files, API Responses, Firebase exports | Plain text, Code, Markdown |
+> Wit's End: Using a normal text splitter on JSON is like trying to divide a pizza by cutting through the toppings randomly. The JSON splitter knows where the slices are and cuts them neatly.
+> 
+Would you like to see how to use this splitter on a massive .jsonl file (JSON Lines), or should we look at how to convert these JSON chunks into "Summaries" using an LLM?
+
