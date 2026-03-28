@@ -1,0 +1,127 @@
+The RecursiveCharacterTextSplitter is the "gold standard" for text splitting in LangChain.
+While a simple splitter might cut a sentence in half just because it reached a character limit, the recursive splitter is polite. It tries to split at the "natural" breaks of a document (paragraphs, then sentences, then words) to keep related context together.
+How It Works (The "Hierarchy")
+The splitter takes a list of characters and tries to split the text using them in order. By default, the order is:
+ * "\n\n" (Paragraphs)
+ * "\n" (Lines)
+ * " " (Words)
+ * "" (Individual characters - the last resort)
+It looks for the first character in the list that can split the text into chunks smaller than your chunk_size. If a chunk is still too big, it moves to the next character in the list.
+1. Using it with Pydantic
+When splitting documents for ingestion, you want to ensure that the metadata (source, page number, author) is copied from the parent document to every single chunk.
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from pydantic import BaseModel, Field
+
+# 1. Define what our Chunk Metadata must look like
+class ChunkMetadata(BaseModel):
+    source: str
+    chunk_index: int
+    char_count: int = Field(gt=0)
+
+# 2. Initialize the Splitter
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=100,
+    chunk_overlap=20, # Adds 20 characters of context from the previous chunk
+    separators=["\n\n", "\n", " ", ""]
+)
+
+# 3. Split a long text
+text = "Pydantic is great.\n\nIt validates data.\n\nRecursive splitting keeps context."
+chunks = splitter.split_text(text)
+
+valid_chunks = []
+for i, chunk in enumerate(chunks):
+    # Validate each chunk's metadata before storage
+    meta = ChunkMetadata(
+        source="manual_input",
+        chunk_index=i,
+        char_count=len(chunk)
+    )
+    valid_chunks.append({"text": chunk, "metadata": meta.model_dump()})
+
+print(f"Created {len(valid_chunks)} validated chunks.")
+
+2. Key Parameters Explained
+| Parameter | Purpose | Why it matters |
+|---|---|---|
+| chunk_size | Max characters per chunk. | Controls how much info the LLM sees at once. |
+| chunk_overlap | "Sliding window" overlap. | Prevents losing context at the edge of a split. |
+| separators | The list of split characters. | Defines the "priority" of where to cut the text. |
+| length_function | How to count (len, tokens). | Useful if you want to split by tokens instead of characters. |
+Why use Recursive over Character Splitter?
+Imagine the sentence: "The CEO announced that profits are up, but expenses are also rising."
+ * Character Splitter: Might cut at "The CEO announced that prof" | "its are up..." (Meaning is lost).
+ * Recursive Splitter: Will see that the chunk is too long, look for a space, and cut at "The CEO announced that" | "profits are up..." (Meaning is preserved).
+[Image comparing CharacterSplitter vs RecursiveCharacterTextSplitter showing text preservation]
+When to use this in your Pipeline?
+ * After Loading: Use a WebBaseLoader or PyPDFLoader to get the full text.
+ * During Splitting: Use RecursiveCharacterTextSplitter to break it down.
+ * Before Embedding: Use Pydantic to verify that every chunk has a source URL and a timestamp so you know where the answer came from later.
+> Wit's End: Using a basic splitter is like cutting a sandwich with a chainsaw. Recursive splitting is using a deli slicer—much more precise and you won't lose the pickles.
+> 
+Would you like me to show you how to split by "Tokens" (which is what LLMs actually read) instead of "Characters"?
+
+
+The RecursiveCharacterTextSplitter is the "gold standard" for text splitting in LangChain.
+While a simple splitter might cut a sentence in half just because it reached a character limit, the recursive splitter is polite. It tries to split at the "natural" breaks of a document (paragraphs, then sentences, then words) to keep related context together.
+How It Works (The "Hierarchy")
+The splitter takes a list of characters and tries to split the text using them in order. By default, the order is:
+ * "\n\n" (Paragraphs)
+ * "\n" (Lines)
+ * " " (Words)
+ * "" (Individual characters - the last resort)
+It looks for the first character in the list that can split the text into chunks smaller than your chunk_size. If a chunk is still too big, it moves to the next character in the list.
+1. Using it with Pydantic
+When splitting documents for ingestion, you want to ensure that the metadata (source, page number, author) is copied from the parent document to every single chunk.
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from pydantic import BaseModel, Field
+
+# 1. Define what our Chunk Metadata must look like
+class ChunkMetadata(BaseModel):
+    source: str
+    chunk_index: int
+    char_count: int = Field(gt=0)
+
+# 2. Initialize the Splitter
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=100,
+    chunk_overlap=20, # Adds 20 characters of context from the previous chunk
+    separators=["\n\n", "\n", " ", ""]
+)
+
+# 3. Split a long text
+text = "Pydantic is great.\n\nIt validates data.\n\nRecursive splitting keeps context."
+chunks = splitter.split_text(text)
+
+valid_chunks = []
+for i, chunk in enumerate(chunks):
+    # Validate each chunk's metadata before storage
+    meta = ChunkMetadata(
+        source="manual_input",
+        chunk_index=i,
+        char_count=len(chunk)
+    )
+    valid_chunks.append({"text": chunk, "metadata": meta.model_dump()})
+
+print(f"Created {len(valid_chunks)} validated chunks.")
+
+2. Key Parameters Explained
+| Parameter | Purpose | Why it matters |
+|---|---|---|
+| chunk_size | Max characters per chunk. | Controls how much info the LLM sees at once. |
+| chunk_overlap | "Sliding window" overlap. | Prevents losing context at the edge of a split. |
+| separators | The list of split characters. | Defines the "priority" of where to cut the text. |
+| length_function | How to count (len, tokens). | Useful if you want to split by tokens instead of characters. |
+Why use Recursive over Character Splitter?
+Imagine the sentence: "The CEO announced that profits are up, but expenses are also rising."
+ * Character Splitter: Might cut at "The CEO announced that prof" | "its are up..." (Meaning is lost).
+ * Recursive Splitter: Will see that the chunk is too long, look for a space, and cut at "The CEO announced that" | "profits are up..." (Meaning is preserved).
+[Image comparing CharacterSplitter vs RecursiveCharacterTextSplitter showing text preservation]
+When to use this in your Pipeline?
+ * After Loading: Use a WebBaseLoader or PyPDFLoader to get the full text.
+ * During Splitting: Use RecursiveCharacterTextSplitter to break it down.
+ * Before Embedding: Use Pydantic to verify that every chunk has a source URL and a timestamp so you know where the answer came from later.
+> Wit's End: Using a basic splitter is like cutting a sandwich with a chainsaw. Recursive splitting is using a deli slicer—much more precise and you won't lose the pickles.
+> 
+Would you like me to show you how to split by "Tokens" (which is what LLMs actually read) instead of "Characters"?
+
