@@ -1,0 +1,66 @@
+When using PyPDFLoader, the data ingestion process is slightly more complex because a single PDF file is broken into multiple pages. Each page becomes a separate Document object in LangChain.
+Pydantic is essential here to ensure that every single page carries consistent metadata (like the project name or access level) so you can filter your vector database by "Page Number" or "Document Source" later.
+1. The Pydantic Schema
+First, we define a schema that validates the metadata commonly found in PDFs, plus some custom fields we want for our database.
+from pydantic import BaseModel, Field, HttpUrl
+from typing import Optional
+
+class PDFMetadata(BaseModel):
+    source: str                          # File path or URL
+    page: int = Field(ge=0)              # Page number (must be 0+)
+    project_code: str = "PROJ-2026"      # Custom internal ID
+    is_sensitive: bool = False           # Security flag
+    author: Optional[str] = "Corporate"  # Default if missing
+
+2. The Ingestion Script
+We will load the PDF, then loop through every page to "clean" its metadata using our Pydantic model.
+from langchain_community.document_loaders import PyPDFLoader
+from pydantic import ValidationError
+
+# 1. Initialize the Loader
+loader = PyPDFLoader("annual_report.pdf")
+
+# 2. Load the pages (returns a list of Document objects)
+pages = loader.load()
+
+cleaned_pages = []
+
+for i, page_doc in enumerate(pages):
+    try:
+        # 3. Create a dictionary from existing metadata + our own fields
+        raw_metadata = {
+            "source": page_doc.metadata.get("source"),
+            "page": page_doc.metadata.get("page"),
+            "project_code": "FIN-REPORTS-01",
+            "is_sensitive": True if "CONFIDENTIAL" in page_doc.page_content else False
+        }
+        
+        # 4. Validate with Pydantic
+        # This catches if 'page' is missing or 'source' is null
+        validated_meta = PDFMetadata(**raw_metadata)
+        
+        # 5. Overwrite the messy metadata with our clean Pydantic dictionary
+        page_doc.metadata = validated_meta.model_dump()
+        cleaned_pages.append(page_doc)
+        
+    except ValidationError as e:
+        print(f"Page {i} failed validation: {e}")
+
+print(f"Ingested {len(cleaned_pages)} valid PDF pages.")
+
+Why use Pydantic for PDF Ingestion?
+1. Dynamic Logic (The is_sensitive flag)
+In the example above, we checked the page_content for the word "CONFIDENTIAL". Pydantic then enforced that this is_sensitive field must be a boolean. This is a powerful way to tag data during ingestion based on what the text actually says.
+2. Standardizing "Source"
+Some loaders return absolute paths (C:\Users\...), while others return relative paths (./doc.pdf). You can use a Pydantic Validator to strip the path and only keep the filename, making your UI look much cleaner.
+3. Protection Against "NoneType"
+PDF loaders sometimes fail to extract a page number. If your Vector DB expects an integer and gets None, it will crash. Pydantic's page: int rule prevents this by failing early or providing a default.
+Comparison of Metadata
+| Field | Raw PyPDFLoader | Pydantic Validated |
+|---|---|---|
+| source | "./docs/manual.pdf" | "manual.pdf" (Cleaned) |
+| page | 0 (or missing) | 0 (Strict Integer) |
+| project_code | (Does not exist) | "FIN-REPORTS-01" |
+| is_sensitive | (Does not exist) | True/False (Derived from text) |
+Would you like to see how to take these cleaned_pages and save them into a Vector Store like Chroma or FAISS while keeping this metadata searchable?
+
