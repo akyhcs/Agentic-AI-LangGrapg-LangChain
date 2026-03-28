@@ -1,0 +1,45 @@
+To use OpenAI Embeddings in LangChain, you need the langchain-openai package. In 2026, the text-embedding-3-small and text-embedding-3-large models are the standard, replacing the older ada-002 model with better performance and lower costs.
+1. Basic Implementation
+Here is the simplest way to turn a string into a vector (a list of numbers).
+from langchain_openai import OpenAIEmbeddings
+
+# 1. Initialize the model (Ensure OPENAI_API_KEY is in your environment)
+embeddings_model = OpenAIEmbeddings(model="text-embedding-3-small")
+
+# 2. Embed a single query
+# This is what you do when a user asks a question
+text = "How does Pydantic help with data ingestion?"
+query_vector = embeddings_model.embed_query(text)
+
+print(f"First 5 numbers of the vector: {query_vector[:5]}")
+print(f"Total dimensions: {len(query_vector)}") # Output: 1536
+
+2. Why "3-Small" vs "3-Large"?
+OpenAI now allows you to choose the "dimensionality" of your vectors. This is a huge win for saving database space.
+| Model | Dimensions | Best For |
+|---|---|---|
+| text-embedding-3-small | 1536 | High speed, low cost, standard apps. |
+| text-embedding-3-large | 3072 | Complex research, legal docs, high precision. |
+3. Practical Use: Embedding Multiple Documents
+When you are building a search engine (RAG), you use embed_documents to process your entire knowledge base at once.
+# A list of text chunks from your splitter
+chunks = [
+    "Pydantic validates types at runtime.",
+    "Embeddings represent semantic meaning as vectors.",
+    "LangChain connects LLMs to external data."
+]
+
+# This sends the chunks in batches to OpenAI's API
+doc_vectors = embeddings_model.embed_documents(chunks)
+
+print(f"Successfully embedded {len(doc_vectors)} documents.")
+
+4. How this connects to your Ingestion Pipeline
+Now that you have these numbers, you don't just store the text; you store the text + the vector.
+When a user asks a question, your app:
+ * Embeds the question using embed_query.
+ * Compares that vector to all the doc_vectors in your database.
+ * Returns the closest matches (the ones with the most similar math).
+> Wit's End: An embedding is like a GPS coordinate for an idea. "Pydantic" and "Data Validation" might live in the same neighborhood, while "Pizza Recipes" is in a completely different country.
+> 
+
