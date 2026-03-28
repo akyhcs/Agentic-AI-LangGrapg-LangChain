@@ -1,0 +1,74 @@
+With Ollama, you can generate embeddings locally, which is perfect for privacy-focused apps or saving on API costs. In 2026, Ollama supports a specialized "embed" endpoint that is much faster than the standard "generate" endpoint.
+1. Top Local Embedding Models (2026)
+Before running the code, you need to "pull" a dedicated embedding model. These are much smaller (around 300MB–600MB) than full LLMs.
+| Model Name | Size | Strengths |
+|---|---|---|
+| nomic-embed-text | 137M | Best all-rounder. Massive context window (8k+). |
+| mxbai-embed-large | 335M | SOTA Retrieval. Best for technical or legal data. |
+| qwen3-embedding | 600M | New for 2026. Exceptional at coding & reasoning context. |
+| all-minilm | 22M | Ultra-light. Fast enough to run on a phone or basic laptop. |
+Setup Command:
+ollama pull nomic-embed-text
+
+2. Example: Using the Ollama Python Library
+The official ollama library is the most direct way to get vectors.
+import ollama
+
+# 1. Single Embedding (for a query)
+response = ollama.embed(
+    model='nomic-embed-text',
+    input='What is the best way to validate data in Python?'
+)
+query_vector = response['embeddings'][0]
+print(f"Vector Length: {len(query_vector)}") # 768 for Nomic
+
+# 2. Batch Embedding (for multiple documents)
+# This is highly optimized in the 2026 version of Ollama
+docs = [
+    "Pydantic uses type hints for validation.",
+    "Ollama allows for local model execution.",
+    "Embeddings are the backbone of semantic search."
+]
+
+batch_response = ollama.embed(
+    model='nomic-embed-text',
+    input=docs
+)
+print(f"Generated {len(batch_response['embeddings'])} vectors.")
+
+3. Example: Using LangChain Integration
+If you want to plug Ollama into a Vector DB like Chroma (from our previous steps), use the langchain-ollama package.
+from langchain_ollama import OllamaEmbeddings
+
+# Initialize the embedder
+embedder = OllamaEmbeddings(model="nomic-embed-text")
+
+# Embed a query
+vector = embedder.embed_query("How do I use local embeddings?")
+
+# Embed multiple documents for a vector store
+vectors = embedder.embed_documents([
+    "Local AI is safer for private data.",
+    "Ollama simplifies model deployment."
+])
+
+4. Pro-Tip: Truncated Embeddings
+In 2026, newer models like embeddinggemma or nomic support "Matryoshka Embeddings." This allows you to shrink the vector size (e.g., from 768 down to 256) to save storage space without losing much accuracy.
+# Shrink the output dimensions to save memory
+small_vector = ollama.embed(
+    model='nomic-embed-text',
+    input='Sample text',
+    dimensions=256 
+)
+
+Why use Ollama Embeddings over OpenAI?
+| Feature | OpenAI | Ollama (Local) |
+|---|---|---|
+| Cost | Pay-per-token | $0 (Free) |
+| Privacy | Data sent to cloud | 100% Private (Local) |
+| Speed | Network dependent | Instant (Hardware dependent) |
+| Offline | No | Yes |
+> Wit's End: Using Ollama for embeddings is like having a private vault in your basement instead of a safety deposit box at the bank. It's faster to get into, and you don't have to pay a monthly fee to look at your own stuff.
+> 
+Would you like me to show you how to compare the "Similarity Score" between two Ollama vectors to see how closely they match?
+
