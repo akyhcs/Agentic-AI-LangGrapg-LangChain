@@ -1,0 +1,58 @@
+If splitting is how we break data into bite-sized pieces, Embedding is how we translate those pieces into a language an AI can understand: Math.
+An Embedding turns a chunk of text into a long list of numbers (a "Vector"). This vector represents the semantic meaning of the text. Because it's math, we can calculate how "close" two ideas are, even if they don't share any of the same words.
+1. How Embeddings Work
+In standard search, searching for "canine" won't find "dog." In an Embedding Space, the vectors for "canine" and "dog" will be geometrically close to each other.
+The Two Core Methods
+In LangChain, every embedding provider follows a standard interface with two methods:
+ * embed_documents: Used during ingestion. It turns your thousands of text chunks into vectors to be stored in a database.
+ * embed_query: Used during retrieval. It turns a user's single question (e.g., "How do I use Pydantic?") into a vector so it can be compared against your stored documents.
+2. Using Embeddings in LangChain
+In 2026, there are many providers. Here is how you use a modern model like OpenAI's text-embedding-3-large or Google's Gemini Embedding 2.
+from langchain_openai import OpenAIEmbeddings
+
+# 1. Initialize the model
+# 'text-embedding-3-large' is a top-tier choice in 2026
+embeddings_model = OpenAIEmbeddings(model="text-embedding-3-large")
+
+# 2. Embed a single query (for search)
+query_vector = embeddings_model.embed_query("What is data validation?")
+
+# 3. Embed a list of documents (for storage)
+doc_vectors = embeddings_model.embed_documents([
+    "Pydantic is a data validation library.",
+    "LangChain helps build LLM applications."
+])
+
+print(f"Vector size: {len(query_vector)}") # Usually 1536 or 3072 dimensions
+
+3. Top Embedding Models in 2026
+Choosing the right model depends on your budget and data type.
+| Model | Provider | Strengths (2026 Benchmarks) |
+|---|---|---|
+| Gemini Embedding 2 | Google | Best all-rounder. Perfect 32K context handling. |
+| text-embedding-3-large | OpenAI | Excellent ecosystem support and reliability. |
+| Voyage 3.5 | Voyage AI | Specialized for enterprise retrieval and legal docs. |
+| BGE-M3 | BAAI (Open Source) | Best for self-hosting and multilingual tasks. |
+| Jina v5 | Jina AI | High quality in a very small, fast package. |
+4. Why Use Pydantic with Embeddings?
+Embeddings are expensive and vectors are large. Pydantic helps you manage the "before" and "after":
+ * Before: Ensure you aren't sending empty strings or "junk" text to the API (saving you money).
+ * After: Validate that the vector returned is the correct size (e.g., exactly 1536 numbers) before you try to save it to your database.
+from pydantic import BaseModel, conlist
+
+class ValidatedEmbedding(BaseModel):
+    text: str
+    # Ensure the vector is exactly the right length for our DB
+    vector: conlist(float, min_length=1536, max_length=1536) 
+
+# If the API glitched and returned a half-empty vector, Pydantic catches it.
+
+Summary: The Ingestion "Finish Line"
+ * Load: Get the text.
+ * Split: Chunk it into tokens.
+ * Embed: Turn those chunks into Vectors.
+ * Store: Save those vectors into a Vector Database (like Chroma, Pinecone, or Weaviate).
+> Wit's End: Embeddings are like a "universal translator" for concepts. They take your messy human language and turn it into coordinates on a giant map of human knowledge.
+> 
+Would you like to see the final step: how to save these vectors into a Vector Database and perform your first "Similarity Search"?
+
