@@ -1,0 +1,102 @@
+Putting all the pieces together into a single, cohesive script is the "Aha!" moment of building AI applications.
+Since we just discussed FAISS, let's use it alongside Ollama to build a completely local, lightning-fast ingestion pipeline. We will grab an article from the web, chop it into manageable pieces, turn those pieces into math using Ollama, and save them in our FAISS Rolodex.
+Example 1: The "LangChain + FAISS" Web Pipeline
+This is the standard way to build a RAG pipeline in 2026. It handles the heavy lifting of moving data between the different steps.
+from langchain_community.document_loaders import WebBaseLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_ollama import OllamaEmbeddings
+from langchain_community.vectorstores import FAISS
+
+# ---------------------------------------------------------
+# STEP 1: LOAD THE DATA
+# Let's scrape an article about local AI
+# ---------------------------------------------------------
+print("1. Loading data from the web...")
+loader = WebBaseLoader("https://ollama.com/blog/embedding-models")
+raw_documents = loader.load()
+
+# ---------------------------------------------------------
+# STEP 2: SPLIT THE DATA
+# Break the long article into 500-character chunks
+# ---------------------------------------------------------
+print("2. Splitting text into chunks...")
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=500, 
+    chunk_overlap=50
+)
+chunks = text_splitter.split_documents(raw_documents)
+print(f"   -> Created {len(chunks)} chunks.")
+
+# ---------------------------------------------------------
+# STEP 3: EMBED THE DATA (LOCALLY)
+# Using Ollama's 'nomic-embed-text' to convert text to vectors
+# ---------------------------------------------------------
+print("3. Initializing Ollama Embeddings...")
+# Note: Ensure you have run `ollama pull nomic-embed-text` in your terminal first
+local_embeddings = OllamaEmbeddings(model="nomic-embed-text")
+
+# ---------------------------------------------------------
+# STEP 4: STORE IN VECTOR DB
+# Pass the chunks and the embedding model into FAISS
+# ---------------------------------------------------------
+print("4. Building the FAISS Vector Index...")
+vector_store = FAISS.from_documents(chunks, local_embeddings)
+
+# ---------------------------------------------------------
+# STEP 5: TEST IT (SEARCH)
+# ---------------------------------------------------------
+print("\n--- Pipeline Complete! Let's test it. ---")
+query = "Why should I use local embedding models?"
+results = vector_store.similarity_search(query, k=2)
+
+print(f"\nQuestion: {query}")
+for i, result in enumerate(results):
+    print(f"\nMatch {i+1}:\n{result.page_content}")
+
+Example 2: The "No Magic" Manual Pipeline
+Sometimes, LangChain can feel like it's doing too much "magic" behind the scenes. If you want to understand exactly what is happening under the hood using just the official ollama Python package, it looks like this:
+import ollama
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+# 1. LOAD: Raw text data
+raw_text = """
+Data ingestion is the first step of any AI pipeline.
+If you don't clean your data, your LLM will hallucinate.
+Ollama makes it easy to run models locally without paying API fees.
+Embeddings translate words into multidimensional math.
+"""
+
+# 2. SPLIT: Break it down (We still use LangChain here because it's the best tool for the job)
+splitter = RecursiveCharacterTextSplitter(chunk_size=75, chunk_overlap=10)
+text_chunks = splitter.split_text(raw_text)
+
+# 3. EMBED: Manually send each chunk to Ollama
+database = []
+
+print("Embedding chunks locally...")
+for chunk in text_chunks:
+    # Get the vector from Ollama
+    response = ollama.embed(model='nomic-embed-text', input=chunk)
+    vector = response['embeddings'][0]
+    
+    # Manually store the text and its corresponding vector in our "database" (a simple list)
+    database.append({
+        "text": chunk,
+        "vector": vector
+    })
+
+print(f"Successfully embedded {len(database)} chunks without LangChain!")
+
+# Now, database[0]['vector'] holds the math, and database[0]['text'] holds the words.
+
+Pipeline Recap
+| Step | Tool Used | What it does |
+|---|---|---|
+| Load | WebBaseLoader | Extracts raw HTML/Text from a URL. |
+| Split | RecursiveCharacterTextSplitter | Chops the text safely so we don't cut sentences in half. |
+| Embed | OllamaEmbeddings | Turns those chunks into lists of numbers (locally on your machine). |
+| Store | FAISS | Organizes those numbers in RAM for instant searching. |
+> Wit's End: Building an ingestion pipeline is like meal-prepping. Loading is buying the groceries, splitting is chopping the vegetables, embedding is cooking them, and the vector store is putting them in nice little Tupperware containers for the week.
+> 
+Now that you have your data loaded, chunked, embedded, and searchable, would you like me to show you the final boss: how to pass those search results into a local LLM (like Llama 3) to actually generate an answer?
+
