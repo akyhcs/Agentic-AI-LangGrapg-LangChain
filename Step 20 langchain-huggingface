@@ -1,0 +1,51 @@
+langchain-huggingface is the official partner package designed to provide a seamless bridge between the LangChain orchestration framework and the Hugging Face ecosystem.
+As of 2026, this package has completely replaced the older integrations that used to live inside langchain-community. If you see tutorials mentioning from langchain.llms import HuggingFaceHub, those are outdated—you should now use this dedicated library for better performance and support for the latest models.
+1. Installation
+You need to install the partner package along with the Hugging Face Hub library.
+pip install langchain-huggingface huggingface_hub
+
+2. Key Components
+The library is divided into three main ways to interact with models:
+A. Local Execution (HuggingFacePipeline)
+Use this when you want to run a model locally using your own hardware (RAM/GPU). It uses the transformers library under the hood.
+ * Best for: Privacy, offline use, and maximum control.
+ * Requirement: Sufficient local VRAM/RAM.
+B. Remote Inference (HuggingFaceEndpoint)
+Use this to call models hosted on Hugging Face’s infrastructure (Serverless Inference API or Dedicated Endpoints).
+ * Best for: Fast prototyping, low local hardware, and production-grade scaling.
+ * Requirement: A Hugging Face API Token.
+C. Embeddings (HuggingFaceEmbeddings)
+This is the most common use case. It allows you to use sentence-transformers locally to turn text into vectors for your RAG pipelines.
+3. Code Example: Local vs. Remote
+Using a Remote Endpoint (Cloud)
+from langchain_huggingface import HuggingFaceEndpoint
+
+# Initialize the remote model (e.g., Mistral-7B)
+llm = HuggingFaceEndpoint(
+    repo_id="mistralai/Mistral-7B-Instruct-v0.3",
+    task="text-generation",
+    max_new_tokens=512,
+    huggingfacehub_api_token="your_token_here"
+)
+
+response = llm.invoke("What are the benefits of open-source AI?")
+print(response)
+
+Using Local Embeddings
+from langchain_huggingface import HuggingFaceEmbeddings
+
+# This downloads the model to your cache and runs it on your CPU/GPU
+embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+
+vector = embeddings.embed_query("Hugging Face and LangChain work great together.")
+print(f"Dimension size: {len(vector)}") # 384
+
+4. Why Use the Partner Package in 2026?
+| Feature | langchain-huggingface | Old langchain-community |
+|---|---|---|
+| Model Support | Supports latest Qwen, Llama 3, and Mistral. | Often buggy with new architectures. |
+| Quantization | Built-in support for 4-bit and 8-bit loading. | Requires manual transformers config. |
+| Tokenization | Uses fast Rust-based tokenizers by default. | Slower Python-based tokenizers. |
+| Chat Interface | Includes ChatHuggingFace for chat-specific models. | Mostly basic text completion. |
+> Wit's End: Switching to langchain-huggingface is like upgrading from a universal remote to a dedicated smart-home hub. It just understands the devices (models) much better.
+> 
