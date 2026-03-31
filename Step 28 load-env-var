@@ -1,0 +1,30 @@
+```python
+import os
+
+def load_env_file(filepath=".env"):
+    with open(filepath) as f:
+        for line in f:
+            line = line.strip()
+            # Skip empty lines and comments
+            if not line or line.startswith("#"):
+                continue
+            # Split on first '=' only
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")  # Remove surrounding quotes
+            os.environ[key] = value
+
+load_env_file()
+print(os.environ.get("MY_VAR"))
+```
+
+**How it works:** for each line it skips blanks/comments, splits on the first `=`, strips whitespace and optional surrounding quotes, then sets the value via `os.environ`.
+
+Alternatively, use the `python-dotenv` library which handles edge cases like multi-line values and variable interpolation:
+
+```python
+from dotenv import load_dotenv
+load_dotenv()  # loads .env from current directory automatically
+```
+
+
