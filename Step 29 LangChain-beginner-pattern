@@ -1,0 +1,81 @@
+
+
+---
+
+## 1 — Basic LLM Call + ChatPromptTemplate
+
+```python
+# Using specific GPT-4o model
+from langchain_openai import ChatOpenAI
+llm = ChatOpenAI(model="gpt-4o")
+
+# Invoking LLM directly
+result = llm.invoke("What is generative AI?")
+print(result)
+
+# ChatPromptTemplate setup
+from langchain_core.prompts import ChatPromptTemplate
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "You are an expert AI Engineer. Provide me answers based on the questions"),
+    ("user", "{input}")
+])
+```
+
+**What's happening:**
+- Directly asks GPT-4o a question
+- Then creates a **prompt template** with a system role + dynamic user input
+
+---
+
+## 2 — Chaining Prompt + LLM
+
+```python
+# Chain = prompt | llm (LCEL syntax)
+chain = prompt | llm
+
+response = chain.invoke({"input": "Can you tell me about Langsmith?"})
+print(response)
+
+type(response)  # → langchain_core.messages.ai.AIMessage
+```
+
+**What's happening:**
+- Uses **LCEL (LangChain Expression Language)** `|` pipe operator
+- Chains prompt → LLM together
+- Response type is `AIMessage` (contains metadata + content)
+
+---
+
+## 3 — StrOutputParser
+
+```python
+from langchain_core.output_parsers import StrOutputParser
+
+output_parser = StrOutputParser()
+chain = prompt | llm | output_parser  # Full chain
+
+response = chain.invoke({"input": "Can you tell me about Langsmith?"})
+print(response)  # → Plain string output
+```
+
+**What's happening:**
+- Adds `StrOutputParser` to the chain
+- Converts `AIMessage` → **plain string** (easier to work with)
+
+---
+
+## Full Pipeline Summary:
+
+```
+User Input
+    ↓
+ChatPromptTemplate  (formats the message)
+    ↓
+ChatOpenAI/GPT-4o   (generates response)
+    ↓
+StrOutputParser     (converts to plain string)
+    ↓
+Final Output
+```
+
+This is the **standard LangChain beginner pattern** — prompt → LLM → parser! 🚀
