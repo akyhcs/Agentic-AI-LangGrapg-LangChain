@@ -1,0 +1,82 @@
+Here's a complete example using LangChain's `WebBaseLoader` and `RecursiveCharacterTextSplitter` to load, split, and store content in a vector database:
+
+```python
+import bs4
+from langchain_community.document_loaders import WebBaseLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import Chroma
+from langchain_openai import OpenAIEmbeddings
+
+# ── 1. Load web content ──────────────────────────────────────────────────────
+loader = WebBaseLoader(
+    web_paths=["https://example.com/your-page"],  # Replace with your URL(s)
+    bs_kwargs=dict(
+        parse_only=bs4.SoupStrainer(
+            class_=("post-content", "post-title", "post-header")  # Target specific HTML classes
+        )
+    ),
+)
+docs = loader.load()
+
+# ── 2. Split into chunks ─────────────────────────────────────────────────────
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=1000,       # Max characters per chunk
+    chunk_overlap=200,     # Overlap to preserve context between chunks
+    length_function=len,
+    separators=["\n\n", "\n", " ", ""],  # Tries these in order
+)
+splits = text_splitter.split_documents(docs)
+
+print(f"Loaded {len(docs)} document(s), split into {len(splits)} chunks")
+
+# ── 3. Store in a vector database ────────────────────────────────────────────
+embeddings = OpenAIEmbeddings()  # Or swap for HuggingFaceEmbeddings, etc.
+
+vectorstore = Chroma.from_documents(
+    documents=splits,
+    embedding=embeddings,
+    persist_directory="./chroma_db",  # Persists to disk
+)
+
+print("✅ Stored in ChromaDB!")
+
+# ── 4. Query the vectorstore ─────────────────────────────────────────────────
+retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+results = retriever.invoke("Your query here")
+
+for r in results:
+    print(r.page_content[:200])
+```
+
+**Install dependencies:**
+```bash
+pip install langchain langchain-community langchain-openai chromadb beautifulsoup4
+```
+
+**Key parameters to tune:**
+
+| Parameter | Default | What it does |
+|---|---|---|
+| `chunk_size` | 1000 | Max chars per chunk |
+| `chunk_overlap` | 200 | Chars shared between chunks |
+| `separators` | `["\n\n", "\n", " ", ""]` | Split priority order |
+| `k` in retriever | 3 | Number of results returned |
+
+**Swapping the vector database** — replace the Chroma block with any of these:
+
+```python
+# Pinecone
+from langchain_pinecone import PineconeVectorStore
+vectorstore = PineconeVectorStore.from_documents(splits, embeddings, index_name="your-index")
+
+# FAISS (local, no server needed)
+from langchain_community.vectorstores import FAISS
+vectorstore = FAISS.from_documents(splits, embeddings)
+vectorstore.save_local("faiss_index")
+
+# Weaviate
+from langchain_weaviate import WeaviateVectorStore
+vectorstore = WeaviateVectorStore.from_documents(splits, embeddings, client=weaviate_client)
+```
+
+Let me know your target URL or vector DB and I can tailor the code further!
