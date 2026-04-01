@@ -1,0 +1,77 @@
+In LangChain, **retrievers** and **chains** are two core abstractions for building LLM-powered applications.
+
+---
+
+## Retrievers
+
+A retriever fetches relevant documents from a data source given a query. It's the bridge between your data and the LLM.
+
+**Common types:**
+- **VectorStoreRetriever** — searches a vector DB (Chroma, Pinecone, FAISS) by semantic similarity
+- **MultiQueryRetriever** — generates multiple query variants to improve recall
+- **ContextualCompressionRetriever** — filters/compresses retrieved docs before passing them to the LLM
+- **SelfQueryRetriever** — LLM parses the query to apply metadata filters automatically
+
+**Basic example:**
+```python
+from langchain_community.vectorstores import Chroma
+from langchain_openai import OpenAIEmbeddings
+
+vectorstore = Chroma.from_documents(docs, OpenAIEmbeddings())
+retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
+
+results = retriever.invoke("What is RAG?")
+```
+
+---
+
+## Chains
+
+A chain connects multiple components — LLMs, retrievers, prompts, parsers — into a pipeline. LangChain supports two styles:
+
+**Legacy (`LLMChain`, `RetrievalQA`)** — older class-based API, still widely used.
+
+**LCEL (LangChain Expression Language)** — modern pipe-based composition, more flexible.
+
+```python
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
+from langchain_core.output_parsers import StrOutputParser
+
+prompt = ChatPromptTemplate.from_template("Answer this: {question}")
+llm = ChatOpenAI()
+
+chain = prompt | llm | StrOutputParser()
+chain.invoke({"question": "What is LangChain?"})
+```
+
+---
+
+## RAG Chain (Retriever + Chain combined)
+
+The most common pattern — retrieve relevant docs, inject into prompt, generate answer:
+
+```python
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
+prompt = ChatPromptTemplate.from_template("""
+Answer using only the context below.
+Context: {context}
+Question: {question}
+""")
+
+rag_chain = (
+    {"context": retriever, "question": RunnablePassthrough()}
+    | prompt
+    | ChatOpenAI()
+    | StrOutputParser()
+)
+
+rag_chain.invoke("What is retrieval-augmented generation?")
+```
+
+---
+
+**Key idea:** retrievers *fetch* context, chains *orchestrate* the full flow. Together they form the backbone of most RAG and Q&A applications. Want a deeper dive into any specific part?
