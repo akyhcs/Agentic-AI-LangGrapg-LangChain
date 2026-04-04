@@ -64,3 +64,84 @@ PDF / CSV / Web
 ```
 
 So `docs` is essentially your **preprocessed, chunked text**, ready to be embedded and searched.
+*************************************************************************************************************************************************************
+Yes! You can store `OpenAIEmbeddings()` in a variable — and it's actually the **recommended practice** for reuse and clarity.
+
+## Storing in a Variable
+
+```python
+from langchain_openai import OpenAIEmbeddings
+
+embeddings = OpenAIEmbeddings(
+    model="text-embedding-3-small",  # or "text-embedding-3-large"
+    openai_api_key="sk-..."          # or set via env variable
+)
+
+vectorstore = Chroma.from_documents(docs, embeddings)
+```
+
+---
+
+## Why store it in a variable?
+
+### 1. Reuse across multiple places
+```python
+embeddings = OpenAIEmbeddings()
+
+# Use when creating the vectorstore
+vectorstore = Chroma.from_documents(docs, embeddings)
+
+# Use again when loading an existing vectorstore later
+vectorstore2 = Chroma(persist_directory="./db", embedding_function=embeddings)
+```
+
+### 2. Embed text directly yourself
+```python
+embeddings = OpenAIEmbeddings()
+
+# Embed a single string → returns a vector (list of floats)
+vector = embeddings.embed_query("What is RAG?")
+print(vector)  # [0.0021, -0.0143, 0.0312, ...]  (1536 dims)
+
+# Embed multiple strings at once
+vectors = embeddings.embed_documents(["text one", "text two"])
+```
+
+### 3. Swap models easily
+```python
+# Just change one line, everything else stays the same
+embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
+# or switch to a completely different provider:
+from langchain_community.embeddings import HuggingFaceEmbeddings
+embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+```
+
+---
+
+## Available OpenAI Embedding Models
+
+| Model | Dimensions | Best for |
+|---|---|---|
+| `text-embedding-3-small` | 1536 | Cost-efficient, fast |
+| `text-embedding-3-large` | 3072 | Higher accuracy |
+| `text-embedding-ada-002` | 1536 | Legacy, older default |
+
+---
+
+## Full Clean Example
+
+```python
+from langchain_openai import OpenAIEmbeddings
+from langchain_community.vectorstores import Chroma
+
+# Store in variable
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+
+# Build vectorstore
+vectorstore = Chroma.from_documents(docs, embeddings)
+
+# Build retriever
+retriever = vectorstore.as_retriever()
+```
+
+The key rule: **same embedding model must be used at index time and query time**, otherwise vectors won't be comparable. Storing it in a variable makes this consistency easy to maintain.
