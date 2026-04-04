@@ -1,0 +1,66 @@
+`docs` is a list of **`Document` objects** — LangChain's standard way of representing text chunks with metadata.
+
+## Document Structure
+
+Each `Document` has two fields:
+
+```python
+from langchain_core.documents import Document
+
+Document(
+    page_content="This is the actual text...",  # the text the LLM will see
+    metadata={"source": "file.pdf", "page": 1}  # optional info about the chunk
+)
+```
+
+---
+
+## Where does `docs` come from?
+
+In practice, you rarely create `Document` objects manually. You use **loaders + splitters**:
+
+### Step 1 — Load raw data
+```python
+from langchain_community.document_loaders import PyPDFLoader
+
+loader = PyPDFLoader("my_document.pdf")
+raw_docs = loader.load()  # returns list of Documents, one per page
+```
+
+### Step 2 — Split into chunks
+```python
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+docs = splitter.split_documents(raw_docs)  # ← THIS is the docs list
+```
+
+### Step 3 — Embed & store
+```python
+vectorstore = Chroma.from_documents(docs, OpenAIEmbeddings())
+```
+
+---
+
+## What happens inside `from_documents(docs, ...)`?
+
+For **each** Document in the list, Chroma:
+1. Takes the `page_content` string
+2. Runs it through `OpenAIEmbeddings()` → gets a vector
+3. Stores the vector + metadata in the vector DB
+
+---
+
+## Full picture
+
+```
+PDF / CSV / Web
+      ↓  (Loader)
+  raw_docs  [Document("page 1 text"), Document("page 2 text"), ...]
+      ↓  (TextSplitter)
+  docs      [Document("chunk 1"), Document("chunk 2"), ...]
+      ↓  (Chroma.from_documents)
+  VectorStore  [vector1, vector2, ...]
+```
+
+So `docs` is essentially your **preprocessed, chunked text**, ready to be embedded and searched.
